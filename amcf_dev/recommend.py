@@ -4,10 +4,10 @@ from tqdm import tqdm
 from utils_amcf import item_to_genre
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-def predict_rate(user_list, item_list, model, data_fund, top_n=5):
+def predict_rate(user_list, item_list, model, data_fund, user_dict, fund_dict, top_n=5):
+    pred = {}
     # user_n x item_n
     for u in tqdm(user_list):
-        # pred = {}
         users = torch.tensor([u]*len(item_list), dtype=torch.long).to(device)
         items = torch.tensor(item_list, dtype=torch.long).to(device)
 
@@ -20,9 +20,6 @@ def predict_rate(user_list, item_list, model, data_fund, top_n=5):
 
         # top n funds_id
         top_n_fund = user_rate[0].argsort()[-top_n:]
-        if u == user_list[0]:
-            all_topn_fundid = np.array([top_n_fund])
-        else:
-            all_topn_fundid = np.append(all_topn_fundid, np.array([top_n_fund]), axis=0)
+        pred[user_dict[u]] = [fund_dict[i] for i in list(top_n_fund)]
 
-    return all_topn_fundid
+    return pred

@@ -12,10 +12,10 @@ from datetime import datetime
 
 class Args(object):
     """Used to generate different sets of arguments"""
-    def __init__(self):
+    def __init__(self, epoch):
         self.path = 'Data/'
         self.dataset = 'fund' 
-        self.epochs = 1
+        self.epochs = epoch
         self.batch_size = 256
         self.num_asp = 6 #18 # ml:18
         self.e_dim = 120
@@ -156,10 +156,10 @@ def test(model, testloader, evaluator, criterion, device, args, data_fund):
 
 
 
-def model_training(user_n, item_n, data_rating, data_fund):
+def model_training(user_n, item_n, data_rating, data_fund, epoch):
     print(30*'+' + 'Start training' + 30*'+', datetime.now())
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    args = Args()
+    args = Args(epoch)
     # determine data size
     num_users = user_n
     num_items = item_n  
@@ -207,9 +207,9 @@ def model_training(user_n, item_n, data_rating, data_fund):
     # for param_tensor in fitted_model.state_dict():
     #     print(param_tensor, "\t", fitted_model.state_dict()[param_tensor].size())
 
-    model_path = 'AMCF_model.pt'
-    torch.save(fitted_model, model_path)
-    print('Model saved at: ', model_path)
+    # model_path = 'AMCF_model.pt'
+    # torch.save(fitted_model, model_path)
+    # print('Model saved at: ', model_path)
 
     print(30*'+' + 'Finish!' + 30*'+', datetime.now())
     return fitted_model

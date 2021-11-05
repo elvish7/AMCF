@@ -21,20 +21,21 @@ def convert_data(w103, w106):
     # encode to index
     le1 = preprocessing.LabelEncoder()
     ratings['cust_no'] = le1.fit_transform(ratings['cust_no'])
-    user_dict = dict(zip(le1.classes_, le1.transform(le1.classes_)))
+    user_dict = dict(zip(le1.transform(le1.classes_), le1.classes_))
 
     le2 = preprocessing.LabelEncoder()
     ratings['wm_prod_code'] = le2.fit_transform(ratings['wm_prod_code'])
-    fund_dict = dict(zip(le2.classes_, le2.transform(le2.classes_)))
+    fund_dict = dict(zip(le2.transform(le2.classes_), le2.classes_))
+    fund_label_id = dict(zip(le2.classes_, le2.transform(le2.classes_)))
 
     ratings.rename({'cust_no':'uid', 'wm_prod_code':'fid', 'txn_amt':'rating', 'txn_dt':'timestamp'}, axis=1, inplace=True)
     ratings = ratings.sort_values(by=['uid'], axis=0).reset_index(drop=True)
 
     fund = w106.join(pd.get_dummies(w106.invest_type)).drop('invest_type', axis=1)
-    fund['wm_prod_code'] = [fund_dict[i] for i in fund['wm_prod_code']]
+    fund['wm_prod_code'] = [fund_label_id[i] for i in fund['wm_prod_code']]
     fund.rename({'wm_prod_code':'fid'}, axis=1, inplace=True)
     fund = fund.sort_values(by=['fid'], axis=0).reset_index(drop=True)
     
     user_n, item_n = len(user_dict), len(fund_dict)
     
-    return ratings, fund, user_n, item_n
+    return ratings, fund, user_n, item_n, user_dict, fund_dict
