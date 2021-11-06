@@ -17,6 +17,7 @@ def predict_rate(user_list, item_list, model, data_fund, user_dict, fund_dict, t
 
         outputs, cos_sim, pref = model(users, items, item_asp) # ratings, _, _
         user_rate = np.array([outputs.cpu().detach().numpy()])
+        # print(user_rate[0].argsort()[-2:], user_rate[0][user_rate[0].argsort()[-2:]])
 
         # top n funds_id
         top_n_fund = user_rate[0].argsort()[-top_n:]

@@ -1,5 +1,6 @@
 import pandas as pd
 import os
+import numpy as np
 from sklearn import preprocessing
 
 # cfda4
@@ -16,7 +17,9 @@ def convert_data(w103, w106):
     ratings = w103[['cust_no', 'wm_prod_code', 'txn_amt', 'txn_dt']].dropna()
     ratings['txn_dt'] = pd.to_datetime(ratings['txn_dt'], format="%Y-%m-%d")
     # 計算交易額占比
-    ratings['txn_amt'] = [int((amt/total_amt[i])*10)+1 for i, amt in zip(ratings['cust_no'], ratings['txn_amt'])]
+    # ratings['txn_amt'] = [int((amt/total_amt[i])*10)+1 for i, amt in zip(ratings['cust_no'], ratings['txn_amt'])]
+    ratings['txn_amt'] = [amt/total_amt[i] for i, amt in zip(ratings['cust_no'], ratings['txn_amt'])]
+    ratings['txn_amt'] =pd.cut(ratings.txn_amt, bins=5, labels=np.arange(5), right=False).astype(int)+1
 
     # encode to index
     le1 = preprocessing.LabelEncoder()

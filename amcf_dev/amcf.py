@@ -9,9 +9,10 @@ class AMCF(nn.Module):
     """
     The AMCF class
     """
-    def __init__(self, num_user, num_item, num_asp=6, e_dim=16):
+    def __init__(self, num_user, num_item, num_asp=6, e_dim=16, ave=1.23):
         super(AMCF, self).__init__()
         self.num_asp = num_asp # number of aspects
+        self.all_ave = ave
         self.user_emb = nn.Embedding(num_user, e_dim)
         self.item_emb = nn.Embedding(num_item, e_dim)
 
@@ -30,7 +31,7 @@ class AMCF(nn.Module):
         u_bias = self.u_bias[x]
         i_bias = self.i_bias[y]
         
-        out = (user_latent * item_latent).sum(-1) + u_bias + i_bias + 1.23 #3.53 #4.09, 3.53
+        out = (user_latent * item_latent).sum(-1) + u_bias + i_bias + self.all_ave #1.23 #3.53 #4.09, 3.53
         asp_latent = self.asp_emb(asp) # [batch_size, num_asp, e_dim]
         # asp_weight = torch.bmm(asp_latent, item_latent.unsqueeze(-1)) # [batch, num_asp, 1]
         # asp_weight = F.softmax(asp_weight, dim=1)

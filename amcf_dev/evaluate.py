@@ -13,10 +13,6 @@ class XEval(object):
     def __init__(self, rating, item, dataset='fund'):
         """
         """
-        path = 'data_amcf/ratings'
-        path_i = 'data_amcf/iave'
-        path_u = 'data_amcf/uave'
-
         self.dataset = dataset # the dataset name
         # load rating data
         self.data_df = rating #pd.read_csv(path) # dataframe
@@ -24,7 +20,7 @@ class XEval(object):
         # load averages
         self.i_ave_df = self.get_i_ave() #pd.read_csv(path_i, index_col=0) # item id as index
         self.u_ave_df = self.get_u_ave #pd.read_csv(path_u, index_col=0)
-        
+
         ave_dict = {'fund': self.get_all_ave()} #'fund':1.23, '1m': 3.620, 'ymovie': 4.1}
         self.ave = ave_dict[self.dataset] # the global average
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -104,7 +100,7 @@ class XEval(object):
         # this function is for average calculation purpose
         ratings = self.data[:, 2].astype(float)
         ave = ratings.sum()/len(ratings)
-        print(ave)
+        print('ave:', ave)
         # '100k'： 3.530
         return ave
         

@@ -24,7 +24,7 @@ class Args(object):
         self.bias_reg = 3e-3
         self.asp_reg = 5e-3 #5e-3
         # self.num_neg = 4
-        self.lr = 4e-3 #7e-3
+        self.lr = 4e-3 # 4e-3(score1-11/nan) 7e-3
         self.bias_lr = 7e-3
         self.asp_lr = 7e-2
         self.lambda1 = 5e-2 # 5e-2
@@ -33,7 +33,6 @@ class Args(object):
 
 def train(model, trainloader, testloader, evaluator, optimizer, criterion, device, args, data_fund):
     model.train()
-    train_results, test_results = [], []
     for epoch in range(args.epochs):
         running_loss = 0.0
         running_mse_loss = 0.0
@@ -76,9 +75,7 @@ def train(model, trainloader, testloader, evaluator, optimizer, criterion, devic
         epoch_sim_loss = running_sim_loss / epoch_size
         print("Epoch {:d}: the training RMSE loss: {:.4f}, item embedding similarity: {:.4f}".format(epoch, rmse, epoch_sim_loss))
         print("Total loss: {:.4f}".format(epoch_loss))
-
-        train_results.append([rmse.item(), epoch_sim_loss.item(), epoch_loss.item()]) ##
-        
+    
         # vrmse, vmae, vtop3_5, vtop1_3 = test(model, testloader, evaluator, criterion, device, args)
         vrmse, vmae= test(model, testloader, evaluator, criterion, device, args, data_fund)
         # test_results.append([vrmse.item(), vmae.item(), vtop3_5, vtop1_3]) ##
@@ -166,16 +163,11 @@ def model_training(user_n, item_n, data_rating, data_fund, epoch):
 
     # data_loaders contains all K-Fold train_loaders and test_loaders
     data_loaders = get_data(data_rating, batch_size=args.batch_size)
-    K = len(data_loaders)
-    running_rmse = 0.0
-    running_mae = 0.0
-    fold = 1
     evaluator = XEval(data_rating, data_fund, dataset=args.dataset)
-    # load datasets to perform K-Fold cross validation
+    # load datasets
     for trainloader, testloader in data_loaders:
-        print("Fold {:d} / {:d}".format(fold, K))
         # Build model
-        model = AMCF(num_user=num_users, num_item=num_items, num_asp=args.num_asp, e_dim=args.e_dim)
+        model = AMCF(num_user=num_users, num_item=num_items, num_asp=args.num_asp, e_dim=args.e_dim, ave=evaluator.get_all_ave())
         model = model.to(device)
         # optimizer = Adam(model.parameters(), lr=args.lr, weight_decay=args.reg)
         
@@ -196,16 +188,6 @@ def model_training(user_n, item_n, data_rating, data_fund, epoch):
         # calculate validation losses
         fitted_model = train(model, trainloader, testloader, evaluator, optimizer, criterion, device, args, data_fund)
         val_rmse, val_mae = test(fitted_model, testloader, evaluator, criterion, device, args, data_fund)
-        running_rmse += val_rmse
-        running_mae += val_mae
-        fold += 1
-    
-    print('The overall {:d}-fold cross validation RMSE: {:.4f}'.format(K, running_rmse/K))
-    print('The overall {:d}-fold cross validation MAE: {:.4f}'.format(K, running_mae/K))
-    
-    # print("Model's state_dict:")
-    # for param_tensor in fitted_model.state_dict():
-    #     print(param_tensor, "\t", fitted_model.state_dict()[param_tensor].size())
 
     # model_path = 'AMCF_model.pt'
     # torch.save(fitted_model, model_path)

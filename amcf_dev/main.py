@@ -12,7 +12,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--date", default='2018-12-31', help="Recommendation date")
 parser.add_argument("--eval_duration", default='1m', type=str, help="one month or 7 days")
 parser.add_argument("--dim", default=128, type=int, help="feature emb. dimensions")
-parser.add_argument("--epoch", default=1, type=int, help="epoch num")
+parser.add_argument("--epoch", default=10, type=int, help="epoch num")
 parser.add_argument("--user_ft", help="Use user features", action='store_true')
 parser.add_argument("--item_ft", help="Use item features", action='store_true')
 args = parser.parse_args()
@@ -37,7 +37,7 @@ for d in dates:
 
     ## data preprocess
     ratings, fund, user_n, item_n, user_dict, fund_dict = convert_data(w103_df, w106_df_filter)
-
+    print(len(ratings))
     ## training
     model = model_training(user_n, item_n, ratings, fund, epoch)
     model.eval()
@@ -49,7 +49,7 @@ for d in dates:
 
     ## predict/recommend
     # all the users & items
-    user_list, item_list= ratings['uid'].unique().tolist(), fund['fid'].unique().tolist()
+    user_list, item_list = ratings['uid'].unique().tolist(), fund['fid'].unique().tolist()
     print("Start Recommendation...")
     pred = predict_rate(user_list, item_list, model, fund, user_dict, fund_dict)
 
