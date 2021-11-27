@@ -2,33 +2,43 @@ import torch
 import torch.nn as nn
 from torch.nn.functional import one_hot
 import torch.nn.functional as F
-
+import numpy as np
 
 
 class AMCF(nn.Module):
     """
     The AMCF class
     """
-    def __init__(self, num_user, num_item, weights, num_asp=6, e_dim=16, ave=1.23):
+    def __init__(self, num_user, num_item, num_asp=6, e_dim=16, ave=1.23):
         super(AMCF, self).__init__()
         self.num_asp = num_asp # number of aspects
         self.all_ave = ave
-        self.user_weights, self.item_weights, self.user_bias, self.item_bias = weights
-        self.user_emb = nn.Embedding.from_pretrained(self.user_weights)
-        self.item_emb = nn.Embedding.from_pretrained(self.item_weights)
-        # self.user_emb = nn.Embedding(num_user, e_dim)
-        # self.item_emb = nn.Embedding(num_item, e_dim)
+        self.user_emb = nn.Embedding(num_user, e_dim)
+        self.item_emb = nn.Embedding(num_item, e_dim)
 
-        # self.u_bias = nn.Parameter(torch.randn(num_user))
-        # self.i_bias = nn.Parameter(torch.randn(num_item))
-        self.u_bias = nn.Parameter(self.user_bias)
-        self.i_bias = nn.Parameter(self.item_bias)
+        self.u_bias = nn.Parameter(torch.randn(num_user))
+        self.i_bias = nn.Parameter(torch.randn(num_item))
         self.asp_emb = Aspect_emb(num_asp, e_dim)
         self.mlp = nn.Sequential(nn.Linear(e_dim, 50), nn.Linear(50, 25), nn.Linear(25, num_asp))
         self.e_dim = e_dim
         self.pdist = nn.PairwiseDistance(p=2) # used to calculate pairwise distance
 
-    def forward(self, x, y, asp):
+    def forward(self, x, y, asp, m, id_idx, u_idx):
+        ## SVD 
+        M = torch.tensor(m)
+        u, s, v = torch.svd(M)
+        s_topk = torch.topk(s, 20)
+        idx_list = s_topk[1].tolist()
+
+        u_topk = torch.index_select(u, 1, s_topk[1].squeeze())
+        v_topk = torch.index_select(v, 1, s_topk[1].squeeze())
+        matrix_data = torch.mm(u_topk, v_topk.t())
+        select_user = [u_idx.index(u) for u in x]
+        select_item = [id_idx.index(item) for item in y]
+        r = matrix_data[select_user, select_item]
+        out = r
+        ##
+
         user_latent = self.user_emb(x)
         item_latent = self.item_emb(y)
         detached_item_latent = item_latent.detach() # gradient shielding
@@ -36,7 +46,7 @@ class AMCF(nn.Module):
         u_bias = self.u_bias[x]
         i_bias = self.i_bias[y]
         
-        out = (user_latent * item_latent).sum(-1) + u_bias + i_bias + self.all_ave #1.23 #3.53 #4.09, 3.53
+        #out = (user_latent * item_latent).sum(-1) + u_bias + i_bias + self.all_ave #1.23 #3.53 #4.09, 3.53
         
         asp_latent = self.asp_emb(asp) # [batch_size, num_asp, e_dim]
         # asp_weight = torch.bmm(asp_latent, item_latent.unsqueeze(-1)) # [batch, num_asp, 1]

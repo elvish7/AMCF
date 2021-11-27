@@ -27,8 +27,7 @@ def convert_data(w103, w106, aspect_col):
     # 計算交易額占比
     # ratings['txn_amt'] = [int((amt/total_amt[i])*10)+1 for i, amt in zip(ratings['cust_no'], ratings['txn_amt'])]
     ratings['txn_amt'] = [amt/total_amt[i] for i, amt in zip(ratings['cust_no'], ratings['txn_amt'])]
-    ratings['txn_amt'] = pd.cut(ratings.txn_amt, bins=5, labels=np.arange(1, 6), right=False).astype(int)
-    #ratings['txn_amt'] = pd.cut(ratings.txn_amt, bins=11, labels=np.arange(1, 12), right=False).astype(int)  # best
+    ratings['txn_amt'] = pd.cut(ratings.txn_amt, bins=11, labels=np.arange(1, 12), right=False).astype(int)  # best
 
     # encode to index
     le1 = preprocessing.LabelEncoder()
@@ -61,7 +60,7 @@ def convert_data(w103, w106, aspect_col):
     return ratings, fund, user_n, item_n, user_dict, fund_dict
 
 
-def neg_sampling(ratings_df, n_neg=1, neg_val=0, pos_val=1, percent_print=50):
+def neg_sampling(ratings_df, n_neg=1, neg_val=0, pos_val=1, percent_print=20):
     """version 1.2: 1 positive 1 neg (2 times bigger than the original dataset by default)
         Parameters:
         input rating data as pandas dataframe: uid|fid|rating

@@ -80,26 +80,3 @@ def hrK(a, b, k=5, num_user=63619):
         results_max[i] = len(Max1&Max2)
         results_min[i] = len(Min1&Min2)
     return results_max.mean()
-
-def load_emb_weights(user_dict, fund_dict, base_model_data):
-    user_bias, item_bias = [], []
-    user_weights, item_weights = [], []
-    item_repts, user_repts, user_id_map, item_id_map = base_model_data
-    # get user pretrained embedding with aligned index
-    for i in range(len(user_dict)):
-        corr_uid = user_id_map[user_dict[i]]
-        user_weights.append(user_repts[1][corr_uid])
-        user_bias.append(user_repts[0][corr_uid])
-
-    # get item pretrained embedding with aligned index
-    for j in range(len(fund_dict)):
-        corr_iid = item_id_map[fund_dict[j]]
-        item_weights.append(item_repts[1][corr_iid])
-        item_bias.append(item_repts[0][corr_iid])
-    
-    user_weights = torch.FloatTensor(np.array(user_weights))
-    item_weights = torch.FloatTensor(np.array(item_weights))
-    user_bias, item_bias = torch.FloatTensor(np.array(user_bias)), torch.FloatTensor(np.array(item_bias))
-
-
-    return [user_weights, item_weights, user_bias, item_bias]

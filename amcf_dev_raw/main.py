@@ -6,8 +6,6 @@ from evaluation import Evaluation
 from preprocess import convert_data 
 from train import *
 from recommend import predict_rate
-import pickle
-from utils_amcf import load_emb_weights
 
 ## Add params
 parser = argparse.ArgumentParser()
@@ -25,20 +23,10 @@ for d in dates:
     today = d
     ## Load data
     print("Loading Data...")
-    ## pretrained data from lightFM
-    lightfm_path = 'lightfm/latent_representations_1m/'
-    item_repts = pickle.load(open(lightfm_path+ d +'_item_latents.pkl', 'rb'))
-    user_repts = pickle.load(open(lightfm_path+ d +'_user_latents.pkl', 'rb'))
-    user_id_map, item_id_map = pickle.load(open(lightfm_path+ d +'_id_map.pkl', 'rb'))
-    #print(list(user_id_map.items())[:4])
-    base_model_data = [item_repts, user_repts, user_id_map, item_id_map]
-
-    ## 18M data
     # w103_df = pd.read_csv('/tmp2/jeding/Esun_online_data/w_103_' + today + '.csv')
-    w106_df = pd.read_csv('../data/w106_df_filter_' + today + '.csv')
-    ## 1M data
+    # w106_df = pd.read_csv('data/w106_df_filter_' + today + '.csv')
     w103_df = pd.read_csv('/home/jeding/Esun_data_11_19_train_1M/w_103_' + today + '.csv')
-    # w106_df = pd.read_csv('/home/jeding/Esun_data_11_19_train_1M/w106_df_filter_' + today + '.csv')
+    w106_df = pd.read_csv('/home/jeding/Esun_data_11_19_train_1M/w106_df_filter_' + today + '.csv')
 
     ## Intersection of w103 & w106 wrt wm_prod_code
     _filter = w106_df.wm_prod_code.isin(w103_df['wm_prod_code'].tolist())
@@ -52,13 +40,10 @@ for d in dates:
     ratings, fund, user_n, item_n, user_dict, fund_dict = convert_data(w103_df, w106_df_filter, aspect_col)
     print('rating data length:', len(ratings))
 
-    ## pretrained embedding weights
-    weights = load_emb_weights(user_dict, fund_dict, base_model_data)
-
     ## training
-    model = model_training(user_n, item_n, ratings, fund, epoch, weights)
+    model = model_training(user_n, item_n, ratings, fund, epoch)
     model.eval()
-    
+
     # model = torch.load('AMCF_model.pt')
     # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     # model = model.to(device)

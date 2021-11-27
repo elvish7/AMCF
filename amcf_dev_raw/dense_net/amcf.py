@@ -9,20 +9,20 @@ class AMCF(nn.Module):
     """
     The AMCF class
     """
-    def __init__(self, num_user, num_item, weights, num_asp=6, e_dim=16, ave=1.23):
+    def __init__(self, num_user, num_item, num_asp=6, e_dim=16, ave=1.23):
         super(AMCF, self).__init__()
         self.num_asp = num_asp # number of aspects
         self.all_ave = ave
-        self.user_weights, self.item_weights, self.user_bias, self.item_bias = weights
-        self.user_emb = nn.Embedding.from_pretrained(self.user_weights)
-        self.item_emb = nn.Embedding.from_pretrained(self.item_weights)
-        # self.user_emb = nn.Embedding(num_user, e_dim)
-        # self.item_emb = nn.Embedding(num_item, e_dim)
+        self.user_emb = nn.Embedding(num_user, e_dim)
+        self.item_emb = nn.Embedding(num_item, e_dim)
 
-        # self.u_bias = nn.Parameter(torch.randn(num_user))
-        # self.i_bias = nn.Parameter(torch.randn(num_item))
-        self.u_bias = nn.Parameter(self.user_bias)
-        self.i_bias = nn.Parameter(self.item_bias)
+        ## linear layers
+        self.linear1 = nn.Linear(e_dim*2, 100)
+        self.linear2 = nn.Linear(100, 1)
+        ##
+
+        self.u_bias = nn.Parameter(torch.randn(num_user))
+        self.i_bias = nn.Parameter(torch.randn(num_item))
         self.asp_emb = Aspect_emb(num_asp, e_dim)
         self.mlp = nn.Sequential(nn.Linear(e_dim, 50), nn.Linear(50, 25), nn.Linear(25, num_asp))
         self.e_dim = e_dim
@@ -36,7 +36,14 @@ class AMCF(nn.Module):
         u_bias = self.u_bias[x]
         i_bias = self.i_bias[y]
         
-        out = (user_latent * item_latent).sum(-1) + u_bias + i_bias + self.all_ave #1.23 #3.53 #4.09, 3.53
+        out1 = (user_latent * item_latent).sum(-1) + u_bias + i_bias + self.all_ave #1.23 #3.53 #4.09, 3.53
+        print(out1, 'output1')
+        ## concatenate user and item embeddings to form input
+        cat_ = torch.cat([user_latent, item_latent], 1)
+        h1_relu = F.relu(self.linear1(cat_))
+        out = self.linear2(h1_relu).sum(-1) + u_bias + i_bias + self.all_ave
+        print(out)
+        ##
         
         asp_latent = self.asp_emb(asp) # [batch_size, num_asp, e_dim]
         # asp_weight = torch.bmm(asp_latent, item_latent.unsqueeze(-1)) # [batch, num_asp, 1]

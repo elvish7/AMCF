@@ -9,6 +9,7 @@ from evaluate import XEval
 from scipy.stats import ttest_1samp
 import pickle
 from datetime import datetime
+import pandas as pd
 
 class Args(object):
     """Used to generate different sets of arguments"""
@@ -17,21 +18,21 @@ class Args(object):
         self.dataset = 'fund' 
         self.epochs = epoch
         self.batch_size = 256
-        self.num_asp = 7 #13 #14 #2 #6 #18 # ml:18
-        self.e_dim = 128 #120
+        self.num_asp = 6 #14 #2 #6 #18 # ml:18
+        self.e_dim = 256 #120
         # self.mlp_dim = [64, 32, 16]
         self.reg = 1e-1
         self.bias_reg = 3e-3
         self.asp_reg = 5e-3 #5e-3
         # self.num_neg = 4
-        self.lr = 7e-4 # 4e-3(score1-11/nan) 7e-3
+        self.lr = 4e-3 # 4e-3(score1-11/nan) 7e-3
         self.bias_lr = 7e-3
         self.asp_lr = 7e-2
         self.lambda1 = 5e-2 # 5e-2
         # self.loss_weights = [1, 1, 1]
 
 
-def train(model, trainloader, testloader, evaluator, optimizer, criterion, device, args, data_fund):
+def train(model, trainloader, testloader, evaluator, optimizer, criterion, device, args, data_fund, train_matrix):
     model.train()
     for epoch in range(args.epochs):
         running_loss = 0.0
@@ -40,6 +41,15 @@ def train(model, trainloader, testloader, evaluator, optimizer, criterion, devic
         epoch_size = 0
         for i, data in enumerate(trainloader, 0):
             inputs, labels = data
+            ##
+            df = pd.DataFrame(data={'user': inputs[:, 0], 'item': inputs[:, 1], 'rating': labels})
+            data_train = df.pivot(index = 'user', columns= 'item', values = 'rating')
+            u_idx = list(data_train.index.values)
+            id_idx = data_train.columns.tolist()
+            matrax = data_train.fillna(0)
+            matrix = np.array(matrax)
+            ##
+
             # get genre information from item id
             item_asp = item_to_genre(inputs[:, 1], data_fund).values
             item_asp = torch.Tensor(item_asp).to(device)
@@ -51,11 +61,11 @@ def train(model, trainloader, testloader, evaluator, optimizer, criterion, devic
             epoch_size += len(user_inputs) # calculate the total number of samples in an epoch
 
             optimizer.zero_grad()
-            outputs, cos_sim, pref = model(user_inputs, item_inputs, item_asp) # cos_sim stands for a distance measure.
+            outputs, cos_sim, pref = model(user_inputs, item_inputs, item_asp, matrix, id_idx, u_idx) # cos_sim stands for a distance measure.
             outputs = outputs.flatten()
             cos_sim = cos_sim.flatten()
 
-            mse_loss = criterion(outputs, labels.to(torch.float)) # to float
+            mse_loss = criterion(outputs.to(device), labels.to(torch.float)) # to float
             sim_loss = cos_sim.sum()
             # combined loss
             loss = mse_loss + (args.lambda1 * sim_loss)  
@@ -96,6 +106,14 @@ def test(model, testloader, evaluator, criterion, device, args, data_fund):
         epoch_size = 0
         for i, data in enumerate(testloader, 0):
             inputs, labels = data
+            ##
+            df = pd.DataFrame(data={'user': inputs[:, 0], 'item': inputs[:, 1], 'rating': labels})
+            data_train = df.pivot(index = 'user', columns= 'item', values = 'rating')
+            u_idx = list(data_train.index.values)
+            id_idx = data_train.columns.tolist()
+            matrax = data_train.fillna(0)
+            matrix = np.array(matrax)
+            ##
             # get genre information from item id
             item_asp = item_to_genre(inputs[:, 1], data_fund).values
             item_asp = torch.Tensor(item_asp).to(device)
@@ -110,13 +128,13 @@ def test(model, testloader, evaluator, criterion, device, args, data_fund):
             epoch_size += len(user_inputs) # calculate the total number of samples in an epoch
 
             # optimizer.zero_grad()
-            outputs, cos_sim, pref = model(user_inputs, item_inputs, item_asp)
+            outputs, cos_sim, pref = model(user_inputs, item_inputs, item_asp, matrix, id_idx, u_idx)
             outputs = outputs.flatten()
 
             # loss = get_sse(outputs.data.cpu().numpy(), labels.data.cpu().numpy())
-            loss = criterion(outputs, labels.to(torch.float)) # to float
+            loss = criterion(outputs.to(device), labels.to(torch.float)) # to float
             l1loss = nn.L1Loss(reduction='sum')
-            total_l1 = l1loss(outputs, labels.to(torch.float))
+            total_l1 = l1loss(outputs.to(device), labels.to(torch.float))
 
             running_loss += loss.data
             running_l1loss += total_l1
@@ -131,30 +149,12 @@ def test(model, testloader, evaluator, criterion, device, args, data_fund):
 
         # users = torch.tensor(range(63619), dtype=torch.long).to(device)
         # u_pred = model.predict_pref(users)
-
-        # # u_pred -> user preference of each aspects 
-        # K = 5
-        # M = 3
-        # top_K_acc, bottom_K_acc = evaluator.get_top_K_pos(users, u_pred, K, M)
-        # print("top {:d} at {:d} aspect accuracy: {:.4f}, \n bottom: {:.4f}".format(M, K, top_K_acc, bottom_K_acc))
-        # top3_5 = top_K_acc ###
-
-        # K = 3
-        # M = 1
-        # top_K_acc, bottom_K_acc = evaluator.get_top_K_pos(users, u_pred, K, M)
-        # print("top {:d} at {:d} aspect accuracy: {:.4f}, \n bottom: {:.4f}".format(M, K, top_K_acc, bottom_K_acc))
-        # top1_3 = top_K_acc ###
-
-        # cos_sim = evaluator.get_cos_sim(users, u_pred)#.mean()
-        # p_value = ttest_1samp(cos_sim.cpu().data, 0)
-        # print("average cos_sim is: {:.4f}".format(cos_sim.mean()))
-        # print("the p value: {:f}".format(p_value[1]))
     
-    return rmse, mae#, top3_5, top1_3
+    return rmse, mae
 
 
 
-def model_training(user_n, item_n, data_rating, data_fund, epoch, weights):
+def model_training(user_n, item_n, data_rating, data_fund, epoch, train_matrix):
     print(30*'+' + 'Start training' + 30*'+', datetime.now())
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     args = Args(epoch)
@@ -168,7 +168,7 @@ def model_training(user_n, item_n, data_rating, data_fund, epoch, weights):
     # load datasets
     for trainloader, testloader in data_loaders:
         # Build model
-        model = AMCF(num_user=num_users, num_item=num_items, weights=weights, num_asp=args.num_asp, e_dim=args.e_dim, ave=evaluator.get_all_ave())
+        model = AMCF(num_user=num_users, num_item=num_items, num_asp=args.num_asp, e_dim=args.e_dim, ave=evaluator.get_all_ave())
         model = model.to(device)
         # optimizer = Adam(model.parameters(), lr=args.lr, weight_decay=args.reg)
         
@@ -187,10 +187,10 @@ def model_training(user_n, item_n, data_rating, data_fund, epoch, weights):
         criterion = nn.MSELoss(reduction='sum')
 
         # calculate validation losses
-        fitted_model = train(model, trainloader, testloader, evaluator, optimizer, criterion, device, args, data_fund)
+        fitted_model = train(model, trainloader, testloader, evaluator, optimizer, criterion, device, args, data_fund, train_matrix)
         val_rmse, val_mae = test(fitted_model, testloader, evaluator, criterion, device, args, data_fund)
 
-    # model_path = 'AMCF_model_13f.pt'
+    # model_path = 'AMCF_model.pt'
     # torch.save(fitted_model, model_path)
     # print('Model saved at: ', model_path)
 

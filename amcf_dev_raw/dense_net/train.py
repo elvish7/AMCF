@@ -17,14 +17,14 @@ class Args(object):
         self.dataset = 'fund' 
         self.epochs = epoch
         self.batch_size = 256
-        self.num_asp = 7 #13 #14 #2 #6 #18 # ml:18
-        self.e_dim = 128 #120
+        self.num_asp = 13 #14 #2 #6 #18 # ml:18
+        self.e_dim = 256 #120
         # self.mlp_dim = [64, 32, 16]
         self.reg = 1e-1
         self.bias_reg = 3e-3
         self.asp_reg = 5e-3 #5e-3
         # self.num_neg = 4
-        self.lr = 7e-4 # 4e-3(score1-11/nan) 7e-3
+        self.lr = 4e-3 # 4e-3(score1-11/nan) 7e-3
         self.bias_lr = 7e-3
         self.asp_lr = 7e-2
         self.lambda1 = 5e-2 # 5e-2
@@ -154,7 +154,7 @@ def test(model, testloader, evaluator, criterion, device, args, data_fund):
 
 
 
-def model_training(user_n, item_n, data_rating, data_fund, epoch, weights):
+def model_training(user_n, item_n, data_rating, data_fund, epoch):
     print(30*'+' + 'Start training' + 30*'+', datetime.now())
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     args = Args(epoch)
@@ -168,7 +168,7 @@ def model_training(user_n, item_n, data_rating, data_fund, epoch, weights):
     # load datasets
     for trainloader, testloader in data_loaders:
         # Build model
-        model = AMCF(num_user=num_users, num_item=num_items, weights=weights, num_asp=args.num_asp, e_dim=args.e_dim, ave=evaluator.get_all_ave())
+        model = AMCF(num_user=num_users, num_item=num_items, num_asp=args.num_asp, e_dim=args.e_dim, ave=evaluator.get_all_ave())
         model = model.to(device)
         # optimizer = Adam(model.parameters(), lr=args.lr, weight_decay=args.reg)
         

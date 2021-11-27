@@ -27,8 +27,13 @@ def convert_data(w103, w106, aspect_col):
     # 計算交易額占比
     # ratings['txn_amt'] = [int((amt/total_amt[i])*10)+1 for i, amt in zip(ratings['cust_no'], ratings['txn_amt'])]
     ratings['txn_amt'] = [amt/total_amt[i] for i, amt in zip(ratings['cust_no'], ratings['txn_amt'])]
-    ratings['txn_amt'] = pd.cut(ratings.txn_amt, bins=5, labels=np.arange(1, 6), right=False).astype(int)
-    #ratings['txn_amt'] = pd.cut(ratings.txn_amt, bins=11, labels=np.arange(1, 12), right=False).astype(int)  # best
+    ratings['txn_amt'] = pd.cut(ratings.txn_amt, bins=11, labels=np.arange(
+        1, 12), right=False).astype(int)  # best
+
+    ## for SVD
+    data_train = ratings.pivot(index = 'cust_no', columns= 'wm_prod_code', values = 'txn_amt')
+    matrax = data_train.fillna(0)
+    ##
 
     # encode to index
     le1 = preprocessing.LabelEncoder()
@@ -47,9 +52,10 @@ def convert_data(w103, w106, aspect_col):
     # negative sampling
     neg_samples = neg_sampling(ratings)
     neg_samples.rename({'interact': 'rating'}, axis=1, inplace=True)
-    # ratings = neg_samples # interactioin (0 or 1)
-    ratings = pd.concat([ratings, neg_samples])
+    ratings = neg_samples
+    # ratings = pd.concat([ratings, neg_samples])
     # print(ratings[ratings['uid']==1])
+
 
     fund = w106.join(pd.get_dummies(w106[aspect_col])).drop(aspect_col, axis=1)
     fund['wm_prod_code'] = [fund_label_id[i] for i in fund['wm_prod_code']]
@@ -58,10 +64,10 @@ def convert_data(w103, w106, aspect_col):
 
     user_n, item_n = len(user_dict), len(fund_dict)
 
-    return ratings, fund, user_n, item_n, user_dict, fund_dict
+    return ratings, fund, user_n, item_n, user_dict, fund_dict, matrax
 
 
-def neg_sampling(ratings_df, n_neg=1, neg_val=0, pos_val=1, percent_print=50):
+def neg_sampling(ratings_df, n_neg=1, neg_val=0, pos_val=1, percent_print=20):
     """version 1.2: 1 positive 1 neg (2 times bigger than the original dataset by default)
         Parameters:
         input rating data as pandas dataframe: uid|fid|rating
@@ -108,4 +114,4 @@ def neg_sampling(ratings_df, n_neg=1, neg_val=0, pos_val=1, percent_print=50):
         nTempData, columns=["uid", "fid", "interact"]), ignore_index=True)
 
     # return the generated negative samples
-    return nsamples[nsamples['interact']==0]
+    return nsamples#[nsamples['interact']==0]

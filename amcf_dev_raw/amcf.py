@@ -9,20 +9,15 @@ class AMCF(nn.Module):
     """
     The AMCF class
     """
-    def __init__(self, num_user, num_item, weights, num_asp=6, e_dim=16, ave=1.23):
+    def __init__(self, num_user, num_item, num_asp=6, e_dim=16, ave=1.23):
         super(AMCF, self).__init__()
         self.num_asp = num_asp # number of aspects
         self.all_ave = ave
-        self.user_weights, self.item_weights, self.user_bias, self.item_bias = weights
-        self.user_emb = nn.Embedding.from_pretrained(self.user_weights)
-        self.item_emb = nn.Embedding.from_pretrained(self.item_weights)
-        # self.user_emb = nn.Embedding(num_user, e_dim)
-        # self.item_emb = nn.Embedding(num_item, e_dim)
+        self.user_emb = nn.Embedding(num_user, e_dim)
+        self.item_emb = nn.Embedding(num_item, e_dim)
 
-        # self.u_bias = nn.Parameter(torch.randn(num_user))
-        # self.i_bias = nn.Parameter(torch.randn(num_item))
-        self.u_bias = nn.Parameter(self.user_bias)
-        self.i_bias = nn.Parameter(self.item_bias)
+        self.u_bias = nn.Parameter(torch.randn(num_user))
+        self.i_bias = nn.Parameter(torch.randn(num_item))
         self.asp_emb = Aspect_emb(num_asp, e_dim)
         self.mlp = nn.Sequential(nn.Linear(e_dim, 50), nn.Linear(50, 25), nn.Linear(25, num_asp))
         self.e_dim = e_dim
