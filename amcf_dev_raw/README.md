@@ -1,1 +1,0 @@
-## raw AMCF model (modified by original github code, without base model like FM)
