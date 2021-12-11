@@ -12,12 +12,12 @@ from datetime import datetime
 
 class Args(object):
     """Used to generate different sets of arguments"""
-    def __init__(self, epoch):
+    def __init__(self, epoch, asp_n):
         self.path = 'Data/'
         self.dataset = 'fund' 
         self.epochs = epoch
         self.batch_size = 256
-        self.num_asp = 7 #13 #14 #2 #6 #18 # ml:18
+        self.num_asp = asp_n #13 #14 #2 #6 #18 # ml:18
         self.e_dim = 128 #120
         # self.mlp_dim = [64, 32, 16]
         self.reg = 1e-1
@@ -78,7 +78,7 @@ def train(model, trainloader, testloader, evaluator, optimizer, criterion, devic
         print("Total loss: {:.4f}".format(epoch_loss))
     
         # vrmse, vmae, vtop3_5, vtop1_3 = test(model, testloader, evaluator, criterion, device, args)
-        vrmse, vmae= test(model, testloader, evaluator, criterion, device, args, data_fund)
+        vrmse, vmae, cos_sim = test(model, testloader, evaluator, criterion, device, args, data_fund)
         # test_results.append([vrmse.item(), vmae.item(), vtop3_5, vtop1_3]) ##
 
         model.train()
@@ -129,35 +129,33 @@ def test(model, testloader, evaluator, criterion, device, args, data_fund):
         print("The validation RMSE loss: {:.4f}".format(rmse))
         print("The validation MAE loss: {:.4f}".format(mae))
 
-        # users = torch.tensor(range(63619), dtype=torch.long).to(device)
-        # u_pred = model.predict_pref(users)
+        users = torch.tensor(range(len(user_inputs)), dtype=torch.long).to(device)
+        u_pred = model.predict_pref(users)
 
         # # u_pred -> user preference of each aspects 
         # K = 5
         # M = 3
-        # top_K_acc, bottom_K_acc = evaluator.get_top_K_pos(users, u_pred, K, M)
+        # top_K_acc, bottom_K_acc = evaluator.get_top_K_pos(users, u_pred, data_fund, K, M)
         # print("top {:d} at {:d} aspect accuracy: {:.4f}, \n bottom: {:.4f}".format(M, K, top_K_acc, bottom_K_acc))
-        # top3_5 = top_K_acc ###
 
         # K = 3
         # M = 1
-        # top_K_acc, bottom_K_acc = evaluator.get_top_K_pos(users, u_pred, K, M)
+        # top_K_acc, bottom_K_acc = evaluator.get_top_K_pos(users, u_pred, data_fund, K, M)
         # print("top {:d} at {:d} aspect accuracy: {:.4f}, \n bottom: {:.4f}".format(M, K, top_K_acc, bottom_K_acc))
-        # top1_3 = top_K_acc ###
 
-        # cos_sim = evaluator.get_cos_sim(users, u_pred)#.mean()
+        cos_sim = evaluator.get_cos_sim(users, u_pred, data_fund)#.mean()
         # p_value = ttest_1samp(cos_sim.cpu().data, 0)
-        # print("average cos_sim is: {:.4f}".format(cos_sim.mean()))
+        print("average cos_sim is: {:.4f}".format(cos_sim.mean()))
         # print("the p value: {:f}".format(p_value[1]))
     
-    return rmse, mae#, top3_5, top1_3
+    return rmse, mae, cos_sim.mean().item() #, top3_5, top1_3
 
 
 
-def model_training(user_n, item_n, data_rating, data_fund, epoch, weights):
+def model_training(user_n, item_n, asp_n, data_rating, data_fund, epoch, weights):
     print(30*'+' + 'Start training' + 30*'+', datetime.now())
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    args = Args(epoch)
+    args = Args(epoch, asp_n)
     # determine data size
     num_users = user_n
     num_items = item_n  
@@ -188,14 +186,14 @@ def model_training(user_n, item_n, data_rating, data_fund, epoch, weights):
 
         # calculate validation losses
         fitted_model = train(model, trainloader, testloader, evaluator, optimizer, criterion, device, args, data_fund)
-        val_rmse, val_mae = test(fitted_model, testloader, evaluator, criterion, device, args, data_fund)
+        val_rmse, val_mae, cos_sim = test(fitted_model, testloader, evaluator, criterion, device, args, data_fund)
 
-    # model_path = 'AMCF_model_13f.pt'
+    # model_path = 'AMCF_model_1231.pt'
     # torch.save(fitted_model, model_path)
     # print('Model saved at: ', model_path)
 
     print(30*'+' + 'Finish!' + 30*'+', datetime.now())
-    return fitted_model
+    return fitted_model, val_rmse, cos_sim
 
 #if __name__ == '__main__':
 #    main()

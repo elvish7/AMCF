@@ -6,8 +6,6 @@ import numpy as np
 from sklearn import preprocessing
 
 # cfda4
-
-
 def convert_data(w103, w106, aspect_col):
     """
     convert original dataset to AMCF format
@@ -24,11 +22,9 @@ def convert_data(w103, w106, aspect_col):
     # deal with duplicate funds brought by the same user
     ratings = ratings.groupby(['cust_no', 'wm_prod_code'], as_index=False).agg(
         {'txn_amt': 'sum', 'txn_dt': 'mean'})
-    # 計算交易額占比
-    # ratings['txn_amt'] = [int((amt/total_amt[i])*10)+1 for i, amt in zip(ratings['cust_no'], ratings['txn_amt'])]
+    # calculate txn_amt/total txn_amt
     ratings['txn_amt'] = [amt/total_amt[i] for i, amt in zip(ratings['cust_no'], ratings['txn_amt'])]
     ratings['txn_amt'] = pd.cut(ratings.txn_amt, bins=5, labels=np.arange(1, 6), right=False).astype(int)
-    #ratings['txn_amt'] = pd.cut(ratings.txn_amt, bins=11, labels=np.arange(1, 12), right=False).astype(int)  # best
 
     # encode to index
     le1 = preprocessing.LabelEncoder()

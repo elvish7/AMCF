@@ -19,7 +19,7 @@ class XEval(object):
         self.data = self.data_df.values[:, 0:3] # numpy, note here still float type
         # load averages
         self.i_ave_df = self.get_i_ave() #pd.read_csv(path_i, index_col=0) # item id as index
-        self.u_ave_df = self.get_u_ave #pd.read_csv(path_u, index_col=0)
+        self.u_ave_df = self.get_u_ave() #pd.read_csv(path_u, index_col=0)
 
         ave_dict = {'fund': self.get_all_ave()} #'fund':1.23, '1m': 3.620, 'ymovie': 4.1}
         self.ave = ave_dict[self.dataset] # the global average
@@ -105,47 +105,46 @@ class XEval(object):
         return ave
         
 
-    def get_u_pref(self, uid):
+    def get_u_pref(self, uid, data_fund):
         ave = self.ave # global average
         df = self.data_df
-
-        u_rated = df.loc[df['uid'].isin(uid)]
+        u_rated = df.loc[df['uid'].isin(uid.cpu().numpy())]
         item_rated = u_rated['fid']
-        item_ave = self.i_ave_df.loc[item_rated.values].values
+        item_ave = self.i_ave_df.loc[item_rated.values]['ave'].values
         item_bias = item_ave - self.ave
-        user_ave = self.u_ave_df.loc[u_rated['uid'].values].values
+        user_ave = self.u_ave_df.loc[u_rated['uid'].values]['ave'].values
         user_bias = user_ave - self.ave
-        weight = u_rated[['rating']].values - (self.ave + item_bias + user_bias)
-        weight = weight.flatten()
+        weight = u_rated[['rating']].values.flatten() - (self.ave + item_bias + user_bias)
+        #weight = weight.flatten()
         # u_rated['weight'] = weight
-        u_rated_asp = item_to_genre(item_rated).values
+        u_rated_asp = item_to_genre(item_rated, data_fund).values
         # calculate the weighted rating
         u_pref = np.multiply(u_rated_asp.T, weight).T / 5.0
         u_pref_list = u_pref.tolist()
+        
         u_rated['asp'] = u_pref_list
         u_rated['asp'] = u_rated['asp'].apply(lambda x: np.array(x)) # convert to array
         # u_rated['asp'] = u_rated['asp'].multiply(weight)
         u_rated = u_rated[['uid', 'asp']]
         pref = u_rated.groupby(['uid']).sum()
-        # if self.dataset == '100k':
-        #     path = 'movielens/ml-100k.upref'
-        # pref.to_csv(path, index=False)
+
         pref_list = pref['asp'].tolist()
         pref_ary = np.array(pref_list)
         return pref_ary
 
 
         
-    def get_cos_sim(self, uid, predicted):
+    def get_cos_sim(self, uid, predicted, data_fund):
         """
         predicted: a torch tensor [batch, num_asp]
         uid: a torch tensor [batch]
         """
-        pref = self.get_u_pref(uid)
+        pref = self.get_u_pref(uid, data_fund)
         # convert to tensor.cuda
         pref = torch.tensor(pref, dtype=torch.float).to(self.device)
         pref = F.normalize(pref, p=1, dim=-1)
         sim = F.cosine_similarity(pref, predicted, dim=-1)
+
         return sim
 
 
@@ -181,11 +180,11 @@ class XEval(object):
         acc_top_K = np.multiply(pref_top_K, pred_top_K).sum(axis=-1) / float(K)
         return acc_top_K
 
-    def get_top_K_pos(self, uid, pred, K=5, M=3):
-        pref = self.get_u_pref(uid)
+    def get_top_K_pos(self, uid, pred, data_fund, K=5, M=3):
+        pref = self.get_u_pref(uid, data_fund)
         pred = pred.cpu().data.numpy()
         # return self.get_top_K_pos_(pref, pred, K)
-        num_user = 63619
+        num_user = len(uid)
         return topK(pref, pred, K, M, num_user)
 
     def get_hr_K(self, uid, pred, K=3):
@@ -202,4 +201,3 @@ if __name__ == '__main__':
     a = xeval.get_u_ave()
     b = xeval.get_i_ave()
     # c = xeval.get_top_K_pos(a, b)
-    print(xeval.get_general_pref(torch.tensor([0, 1])))

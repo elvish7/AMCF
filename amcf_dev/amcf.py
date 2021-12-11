@@ -90,6 +90,16 @@ class AMCF(nn.Module):
         out = out.reshape(-1, self.num_asp)
         out = F.normalize(out, p=1, dim=-1)
         return out
+    
+    def predict_score(self, x, y):
+        user_latent = self.user_emb(x)
+        item_latent = self.item_emb(y)
+        u_bias = self.u_bias[x]
+        i_bias = self.i_bias[y]
+        
+        out = (user_latent * item_latent).sum(-1) + u_bias + i_bias + self.all_ave
+        return out
+
 
 class Aspect_emb(nn.Module):
     """
