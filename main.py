@@ -37,8 +37,8 @@ w106_df = load_w106(rawdata_conn)
 
 ## pretrained data from lightFM
 lightfm_path = 'lightfm/latent_representations_1m/'
-item_repts = pickle.load(open(lightfm_path+ today +'_item_latents.pkl', 'rb'))
-user_repts = pickle.load(open(lightfm_path+ today +'_user_latents.pkl', 'rb'))
+item_repts = pickle.load(open(lightfm_path + today +'_item_latents.pkl', 'rb'))
+user_repts = pickle.load(open(lightfm_path + today +'_user_latents.pkl', 'rb'))
 user_id_map, item_id_map = pickle.load(open(lightfm_path+ today +'_id_map.pkl', 'rb'))
 base_model_data = [item_repts, user_repts, user_id_map, item_id_map]
 
