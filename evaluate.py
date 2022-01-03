@@ -98,7 +98,7 @@ class XEval(object):
         # this function is for average calculation purpose
         ratings = self.data[:, 2].astype(float)
         ave = ratings.sum()/len(ratings)
-        print('ave:', ave)
+        # print('ave:', ave)
         # '100k'： 3.530
         return ave
         

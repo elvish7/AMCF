@@ -18,14 +18,14 @@ if not os.path.isfile('config.ini'):
 
 ## Add params
 parser = argparse.ArgumentParser()
-parser.add_argument("--date", default='2018-12-31', help="Recommendation date")
+parser.add_argument("--date", default='2019-06-30', help="Recommendation date")
 parser.add_argument("--train_span", type=int, default=1, help="Training Period")
 parser.add_argument("--eval_duration", default='1m', type=str, help="one month or 7 days")
 parser.add_argument("--epoch", default=10, type=int, help="epoch num")
 args = parser.parse_args()
 today = args.date
 duration = args.eval_duration
-dim = args.dim
+# dim = args.dim
 epoch = args.epoch
 
 ## Load db connection
@@ -36,7 +36,7 @@ w103_df = load_w103(today, rawdata_conn)
 w106_df = load_w106(rawdata_conn)
 
 ## pretrained data from lightFM
-lightfm_path = 'lightfm/latent_representations_1m/'
+lightfm_path = 'lightfm_latent/'
 item_repts = pickle.load(open(lightfm_path + today +'_item_latents.pkl', 'rb'))
 user_repts = pickle.load(open(lightfm_path + today +'_user_latents.pkl', 'rb'))
 user_id_map, item_id_map = pickle.load(open(lightfm_path+ today +'_id_map.pkl', 'rb'))
@@ -55,7 +55,8 @@ asp_n = len(fund.columns)-1
 print('total aspects:', asp_n)
 
 ## pretrained embedding weights
-weights = load_emb_weights(user_dict, fund_dict, base_model_data)
+#weights = load_emb_weights(user_dict, fund_dict, base_model_data)
+weights = None
 ## training
 model, val_rmse, cos_sim = model_training(user_n, item_n, asp_n, ratings, fund, epoch, weights)
 
