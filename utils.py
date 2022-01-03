@@ -6,8 +6,8 @@ from collections import defaultdict
 from db_connection.utils import get_conn
 from db_connection.utils import get_data_start_dt
 
-def load_w103(today, rawdata_conn=None):
-    txn_start_dt, txn_end_dt = get_data_start_dt(today, 18), today  
+def load_w103(today, rawdata_conn=None, span=18):
+    txn_start_dt, txn_end_dt = get_data_start_dt(today, span), today  
     #assert datetime.strptime(
     #    txn_start_dt, '%Y-%m-%d') <= datetime.strptime(
     #    '2019-07-31', '%Y-%m-%d') 

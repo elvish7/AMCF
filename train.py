@@ -8,22 +8,23 @@ from utils_amcf import get_data, item_to_genre
 from evaluate import XEval
 from scipy.stats import ttest_1samp
 import pickle
+from datetime import datetime
 
 class Args(object):
     """Used to generate different sets of arguments"""
-    def __init__(self):
+    def __init__(self, epoch, asp_n):
         self.path = 'Data/'
-        self.dataset = 'fund' # '100k', '1m'， 'ymovie'
-        self.epochs = 1
+        self.dataset = 'fund' 
+        self.epochs = epoch
         self.batch_size = 256
-        self.num_asp = 6 #18 # ml:18
-        self.e_dim = 120
+        self.num_asp = asp_n #13 #14 #2 #6 #18 # ml:18
+        self.e_dim = 128 #120
         # self.mlp_dim = [64, 32, 16]
         self.reg = 1e-1
         self.bias_reg = 3e-3
         self.asp_reg = 5e-3 #5e-3
         # self.num_neg = 4
-        self.lr = 4e-3 #7e-3
+        self.lr = 7e-4 # 4e-3(score1-11/nan) 7e-3
         self.bias_lr = 7e-3
         self.asp_lr = 7e-2
         self.lambda1 = 5e-2 # 5e-2
@@ -32,7 +33,6 @@ class Args(object):
 
 def train(model, trainloader, testloader, evaluator, optimizer, criterion, device, args, data_fund):
     model.train()
-    train_results, test_results = [], []
     for epoch in range(args.epochs):
         running_loss = 0.0
         running_mse_loss = 0.0
@@ -59,6 +59,7 @@ def train(model, trainloader, testloader, evaluator, optimizer, criterion, devic
             sim_loss = cos_sim.sum()
             # combined loss
             loss = mse_loss + (args.lambda1 * sim_loss)  
+            #loss = mse_loss # no explaination
             loss.backward()
             optimizer.step()
             # collect running losses
@@ -75,14 +76,8 @@ def train(model, trainloader, testloader, evaluator, optimizer, criterion, devic
         epoch_sim_loss = running_sim_loss / epoch_size
         print("Epoch {:d}: the training RMSE loss: {:.4f}, item embedding similarity: {:.4f}".format(epoch, rmse, epoch_sim_loss))
         print("Total loss: {:.4f}".format(epoch_loss))
-
-        train_results.append([rmse.item(), epoch_sim_loss.item(), epoch_loss.item()]) ##
-        
-        # vrmse, vmae, vtop3_5, vtop1_3 = test(model, testloader, evaluator, criterion, device, args)
-        vrmse, vmae= test(model, testloader, evaluator, criterion, device, args)
-        # test_results.append([vrmse.item(), vmae.item(), vtop3_5, vtop1_3]) ##
-
-
+    
+        vrmse, vmae, cos_sim = test(model, testloader, evaluator, criterion, device, args, data_fund)
         model.train()
     print(30*'+' + 'training completed!' + 30*'+')
     
@@ -131,50 +126,31 @@ def test(model, testloader, evaluator, criterion, device, args, data_fund):
         print("The validation RMSE loss: {:.4f}".format(rmse))
         print("The validation MAE loss: {:.4f}".format(mae))
 
-        # users = torch.tensor(range(63619), dtype=torch.long).to(device)
-        # u_pred = model.predict_pref(users)
+        users = torch.tensor(range(len(user_inputs)), dtype=torch.long).to(device)
+        u_pred = model.predict_pref(users)
 
-        # # u_pred -> user preference of each aspects 
-        # K = 5
-        # M = 3
-        # top_K_acc, bottom_K_acc = evaluator.get_top_K_pos(users, u_pred, K, M)
-        # print("top {:d} at {:d} aspect accuracy: {:.4f}, \n bottom: {:.4f}".format(M, K, top_K_acc, bottom_K_acc))
-        # top3_5 = top_K_acc ###
-
-        # K = 3
-        # M = 1
-        # top_K_acc, bottom_K_acc = evaluator.get_top_K_pos(users, u_pred, K, M)
-        # print("top {:d} at {:d} aspect accuracy: {:.4f}, \n bottom: {:.4f}".format(M, K, top_K_acc, bottom_K_acc))
-        # top1_3 = top_K_acc ###
-
-        # cos_sim = evaluator.get_cos_sim(users, u_pred)#.mean()
-        # p_value = ttest_1samp(cos_sim.cpu().data, 0)
-        # print("average cos_sim is: {:.4f}".format(cos_sim.mean()))
-        # print("the p value: {:f}".format(p_value[1]))
+        cos_sim = evaluator.get_cos_sim(users, u_pred, data_fund)#.mean()
+        print("average cos_sim is: {:.4f}".format(cos_sim.mean()))
     
-    return rmse, mae#, top3_5, top1_3
+    return rmse, mae, cos_sim.mean().item()
 
 
 
-def model_training(user_n, item_n, data_rating, data_fund):
+def model_training(user_n, item_n, asp_n, data_rating, data_fund, epoch, weights):
+    print(30*'+' + 'Start training' + 30*'+', datetime.now())
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    args = Args()
+    args = Args(epoch, asp_n)
     # determine data size
     num_users = user_n
     num_items = item_n  
 
     # data_loaders contains all K-Fold train_loaders and test_loaders
     data_loaders = get_data(data_rating, batch_size=args.batch_size)
-    K = len(data_loaders)
-    running_rmse = 0.0
-    running_mae = 0.0
-    fold = 1
     evaluator = XEval(data_rating, data_fund, dataset=args.dataset)
-    # load datasets to perform K-Fold cross validation
+    # load datasets
     for trainloader, testloader in data_loaders:
-        print("Fold {:d} / {:d}".format(fold, K))
         # Build model
-        model = AMCF(num_user=num_users, num_item=num_items, num_asp=args.num_asp, e_dim=args.e_dim)
+        model = AMCF(num_user=num_users, num_item=num_items, weights=weights, num_asp=args.num_asp, e_dim=args.e_dim, ave=evaluator.get_all_ave())
         model = model.to(device)
         # optimizer = Adam(model.parameters(), lr=args.lr, weight_decay=args.reg)
         
@@ -194,22 +170,14 @@ def model_training(user_n, item_n, data_rating, data_fund):
 
         # calculate validation losses
         fitted_model = train(model, trainloader, testloader, evaluator, optimizer, criterion, device, args, data_fund)
-        val_rmse, val_mae = test(fitted_model, testloader, evaluator, criterion, device, args, data_fund)
-        running_rmse += val_rmse
-        running_mae += val_mae
-        fold += 1
-    
-    print('The overall {:d}-fold cross validation RMSE: {:.4f}'.format(K, running_rmse/K))
-    print('The overall {:d}-fold cross validation MAE: {:.4f}'.format(K, running_mae/K))
-    
-    # print("Model's state_dict:")
-    # for param_tensor in fitted_model.state_dict():
-    #     print(param_tensor, "\t", fitted_model.state_dict()[param_tensor].size())
+        val_rmse, val_mae, cos_sim = test(fitted_model, testloader, evaluator, criterion, device, args, data_fund)
 
     model_path = 'AMCF_model.pt'
     torch.save(fitted_model, model_path)
     print('Model saved at: ', model_path)
-    return fitted_model
+
+    print(30*'+' + 'Finish!' + 30*'+', datetime.now())
+    return fitted_model, val_rmse, cos_sim
 
 #if __name__ == '__main__':
 #    main()

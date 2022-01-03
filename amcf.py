@@ -9,14 +9,20 @@ class AMCF(nn.Module):
     """
     The AMCF class
     """
-    def __init__(self, num_user, num_item, num_asp=6, e_dim=16):
+    def __init__(self, num_user, num_item, weights, num_asp=6, e_dim=16, ave=1.23):
         super(AMCF, self).__init__()
         self.num_asp = num_asp # number of aspects
-        self.user_emb = nn.Embedding(num_user, e_dim)
-        self.item_emb = nn.Embedding(num_item, e_dim)
+        self.all_ave = ave
+        self.user_weights, self.item_weights, self.user_bias, self.item_bias = weights
+        self.user_emb = nn.Embedding.from_pretrained(self.user_weights)
+        self.item_emb = nn.Embedding.from_pretrained(self.item_weights)
+        # self.user_emb = nn.Embedding(num_user, e_dim)
+        # self.item_emb = nn.Embedding(num_item, e_dim)
 
-        self.u_bias = nn.Parameter(torch.randn(num_user))
-        self.i_bias = nn.Parameter(torch.randn(num_item))
+        # self.u_bias = nn.Parameter(torch.randn(num_user))
+        # self.i_bias = nn.Parameter(torch.randn(num_item))
+        self.u_bias = nn.Parameter(self.user_bias)
+        self.i_bias = nn.Parameter(self.item_bias)
         self.asp_emb = Aspect_emb(num_asp, e_dim)
         self.mlp = nn.Sequential(nn.Linear(e_dim, 50), nn.Linear(50, 25), nn.Linear(25, num_asp))
         self.e_dim = e_dim
@@ -30,7 +36,8 @@ class AMCF(nn.Module):
         u_bias = self.u_bias[x]
         i_bias = self.i_bias[y]
         
-        out = (user_latent * item_latent).sum(-1) + u_bias + i_bias + 1.23 #3.53 #4.09, 3.53
+        out = (user_latent * item_latent).sum(-1) + u_bias + i_bias + self.all_ave #1.23 #3.53 #4.09, 3.53
+        
         asp_latent = self.asp_emb(asp) # [batch_size, num_asp, e_dim]
         # asp_weight = torch.bmm(asp_latent, item_latent.unsqueeze(-1)) # [batch, num_asp, 1]
         # asp_weight = F.softmax(asp_weight, dim=1)
@@ -83,6 +90,16 @@ class AMCF(nn.Module):
         out = out.reshape(-1, self.num_asp)
         out = F.normalize(out, p=1, dim=-1)
         return out
+    
+    def predict_score(self, x, y):
+        user_latent = self.user_emb(x)
+        item_latent = self.item_emb(y)
+        u_bias = self.u_bias[x]
+        i_bias = self.i_bias[y]
+        
+        out = (user_latent * item_latent).sum(-1) + u_bias + i_bias + self.all_ave
+        return out
+
 
 class Aspect_emb(nn.Module):
     """
